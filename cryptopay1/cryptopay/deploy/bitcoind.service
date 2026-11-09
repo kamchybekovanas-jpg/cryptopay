@@ -1,0 +1,15 @@
+[Unit]
+Description=Bitcoin Core node (regtest) for CryptoPay
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=bitcoin
+Group=bitcoin
+ExecStart=/usr/local/bin/bitcoind -conf=/etc/bitcoin/bitcoin.conf -datadir=/var/lib/bitcoind -printtoconsole
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=60
+
+[Install]
+WantedBy=multi-user.target

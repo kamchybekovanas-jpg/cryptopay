@@ -1,0 +1,31 @@
+sequenceDiagram
+    autonumber
+    participant M as Мерчант
+    participant API as CryptoPay API
+    participant S as PaymentService
+    participant DB as SQLite
+    participant W as Bitcoin Core
+    M->>API: POST /api/v1/payments {order_id, client_id, amount}
+    API->>API: проверка X-API-Key и данных
+    API->>S: create_payment(cmd)
+    S->>DB: get_by_order(merchant, order_id)
+    alt такой order_id уже был
+        S-->>API: прежний платёж, деньги не списываются второй раз
+    else новый запрос
+        S->>DB: add(payment) — CREATED
+        S->>W: listwalletdir, loadwallet("client_alice")
+        W-->>S: кошелёк найден — CLIENT_FOUND
+        S->>W: getwalletinfo, getbalances
+        W-->>S: данные клиента — CLIENT_VERIFIED
+        S->>W: getnewaddress (кошелёк pay_service)
+        W-->>S: адрес для оплаты
+        S->>W: getbalances, walletcreatefundedpsbt (пробная сборка)
+        W-->>S: денег хватает, комиссия — FUNDS_CONFIRMED
+        S->>DB: update — PROCESSING (до отправки)
+        S->>W: sendtoaddress(client_alice → адрес сервиса)
+        W-->>S: txid
+        S->>DB: update — SUCCEEDED (txid, комиссия)
+        S-->>API: payment
+    end
+    API-->>M: 201 {status: SUCCEEDED, message: "Деньги успешно списаны", txid}
+    Note over S,W: Если на любом шаге проверка не прошла:<br/>статус FAILED + причина (CLIENT_NOT_FOUND, INSUFFICIENT_FUNDS, ...)

@@ -1,0 +1,111 @@
+classDiagram
+    direction TB
+    namespace Domain {
+        class Payment {
+            +id: str
+            +merchant_id: str
+            +order_id: str
+            +client_id: str
+            +amount_sat: int
+            +status: PaymentStatus
+            +failure_reason: FailureReason
+            +deposit_address: str
+            +txid: str
+            +confirmations: int
+            +refunded_sat: int
+            +transition_to(status)
+            +fail(reason, message)
+            +mark_succeeded(txid, fee)
+            +register_refund(amount)
+        }
+        class Refund {
+            +id: str
+            +payment_id: str
+            +amount_sat: int
+            +status: RefundStatus
+            +txid: str
+            +complete(address, txid, fee)
+            +fail(message)
+        }
+        class PaymentStatus {
+            <<enumeration>>
+            CREATED
+            CLIENT_FOUND
+            CLIENT_VERIFIED
+            FUNDS_CONFIRMED
+            PROCESSING
+            SUCCEEDED
+            FAILED
+            PARTIALLY_REFUNDED
+            REFUNDED
+        }
+    }
+    namespace Application {
+        class PaymentService {
+            +create_payment(cmd)
+            +get_payment(merchant, id)
+            +refresh(payment)
+        }
+        class RefundService {
+            +create_refund(merchant, id, amount, reason)
+        }
+        class PaymentStep {
+            <<interface>>
+            +execute(ctx)
+        }
+        class RefundPolicy {
+            +ensure_allowed(payment, amount, now)
+        }
+        class RefundRule {
+            <<interface>>
+            +check(payment, amount, now)
+        }
+        class WalletPorts {
+            <<interface>>
+            ClientDirectory
+            FundsInspector
+            PaymentExecutor
+            PaymentTracker
+            RefundExecutor
+        }
+        class PaymentRepository {
+            <<interface>>
+            +add(payment)
+            +update(payment)
+            +get(id)
+            +get_by_order(merchant, order)
+        }
+    }
+    namespace Steps {
+        class ClientLookupStep
+        class ClientInfoStep
+        class FundsCheckStep
+        class ChargeStep
+    }
+    namespace Infrastructure {
+        class BitcoinCoreWallet
+        class InMemoryWallet
+        class BitcoinRpcClient {
+            +call(method, params, wallet)
+        }
+        class SqlitePaymentRepository
+    }
+
+    Payment --> PaymentStatus
+    Payment "1" o-- "0..*" Refund : возвраты
+    PaymentService ..> Payment : создаёт и меняет
+    PaymentService --> PaymentRepository
+    PaymentService o-- "1..*" PaymentStep : конвейер шагов
+    RefundService --> PaymentService
+    RefundService --> RefundPolicy
+    RefundService --> WalletPorts : RefundExecutor
+    RefundPolicy o-- "1..*" RefundRule
+    ClientLookupStep ..|> PaymentStep
+    ClientInfoStep ..|> PaymentStep
+    FundsCheckStep ..|> PaymentStep
+    ChargeStep ..|> PaymentStep
+    PaymentStep --> WalletPorts : каждый шаг — свой порт
+    BitcoinCoreWallet ..|> WalletPorts
+    InMemoryWallet ..|> WalletPorts
+    BitcoinCoreWallet --> BitcoinRpcClient
+    SqlitePaymentRepository ..|> PaymentRepository

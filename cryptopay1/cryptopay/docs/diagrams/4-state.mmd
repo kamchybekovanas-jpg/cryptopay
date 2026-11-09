@@ -1,0 +1,19 @@
+stateDiagram-v2
+    [*] --> CREATED : запрос от мерчанта
+    CREATED --> CLIENT_FOUND : кошелёк клиента найден
+    CLIENT_FOUND --> CLIENT_VERIFIED : данные клиента получены
+    CLIENT_VERIFIED --> FUNDS_CONFIRMED : денег хватает с учётом комиссии
+    FUNDS_CONFIRMED --> PROCESSING : отправка транзакции
+    PROCESSING --> SUCCEEDED : получен txid или найден при сверке
+    PROCESSING --> PROCESSING : таймаут, ждём сверки
+    CREATED --> FAILED : CLIENT_NOT_FOUND, WALLET_UNAVAILABLE
+    CLIENT_FOUND --> FAILED : WALLET_ERROR
+    CLIENT_VERIFIED --> FAILED : INSUFFICIENT_FUNDS, FEE_TOO_HIGH, WALLET_ERROR
+    PROCESSING --> FAILED : WALLET_ERROR
+    SUCCEEDED --> PARTIALLY_REFUNDED : частичный возврат
+    SUCCEEDED --> REFUNDED : полный возврат
+    PARTIALLY_REFUNDED --> PARTIALLY_REFUNDED : ещё возврат
+    PARTIALLY_REFUNDED --> REFUNDED : остаток
+    SUCCEEDED --> [*]
+    FAILED --> [*]
+    REFUNDED --> [*]
